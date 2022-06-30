@@ -174,19 +174,21 @@ function Invoke-CveRestMethod {
 
     Switch ($flags) {
     
-    "" {$output = Invoke-RestMethod -Method GET -Uri "https://services.nvd.nist.gov/rest/json/cves/1.0/?pubStartDate=$($toDate):000 UTC-05:00&pubEndDate=$($fromDate):000 UTC-05:00&resultsPerPage=100"}
+    "" {$output = Invoke-RestMethod -Method GET -Uri "https://services.nvd.nist.gov/rest/json/cves/1.0/?pubStartDate=$($toDate):000 UTC-05:00&pubEndDate=$($fromDate):000 UTC-05:00&resultsPerPage=200"}
 
-    "s" {$output = Invoke-RestMethod -Method GET -Uri "https://services.nvd.nist.gov/rest/json/cves/1.0/?pubStartDate=$($toDate):000 UTC-05:00&pubEndDate=$($fromDate):000 UTC-05:00&cvssV3Severity=$($severity)&resultsPerPage=100"}
+    "s" {$output = Invoke-RestMethod -Method GET -Uri "https://services.nvd.nist.gov/rest/json/cves/1.0/?pubStartDate=$($toDate):000 UTC-05:00&pubEndDate=$($fromDate):000 UTC-05:00&cvssV3Severity=$($severity)&resultsPerPage=200"}
 
     "o" {
+        $output = @()
         ForEach ($line in $($outputBox.Text -split "`r`n")) {
-            $output += Invoke-RestMethod -Method GET -Uri "https://services.nvd.nist.gov/rest/json/cves/1.0/?pubStartDate=$($toDate):000 UTC-05:00&pubEndDate=$($fromDate):000 UTC-05:00&keyword=$($line)&resultsPerPage=100"
+            $output += Invoke-RestMethod -Method GET -Uri "https://services.nvd.nist.gov/rest/json/cves/1.0/?pubStartDate=$($toDate):000 UTC-05:00&pubEndDate=$($fromDate):000 UTC-05:00&keyword=$($line)&resultsPerPage=200"
         }
     }
 
     "so" {
+        $output = @()
         ForEach ($line in $($outputBox.Text -split "`r`n")) {
-            $output += Invoke-RestMethod -Method GET -Uri "https://services.nvd.nist.gov/rest/json/cves/1.0/?pubStartDate=$($toDate):000 UTC-05:00&pubEndDate=$($fromDate):000 UTC-05:00&keyword=$($line)&cvssV3Severity=$($severity)&resultsPerPage=100"
+            $output += Invoke-RestMethod -Method GET -Uri "https://services.nvd.nist.gov/rest/json/cves/1.0/?pubStartDate=$($toDate):000 UTC-05:00&pubEndDate=$($fromDate):000 UTC-05:00&keyword=$($line)&cvssV3Severity=$($severity)&resultsPerPage=200"
         }
     }
 
@@ -210,18 +212,17 @@ if ($result -eq [System.Windows.Forms.DialogResult]::Ok) {
     }
     $output = Invoke-CveRestMethod -toDate $toDate -fromDate $fromDate -severity $severity -outputBox $outputBox
 
-    $cveObject = @()
-
     foreach($line in $output.result.CVE_Items) {
-        $cveObject += [PSCustomObject] @{ 
-            CVE = $line.cve.CVE_Data_Meta.ID
-            BaseScore = $line.impact.baseMetricV3.cvssV3.baseScore
-            BaseSev = $line.impact.baseMetricV3.cvssV3.baseSeverity
-            Description = $line.cve.description.description_data.value
-        }
+        $cve = [CVE]::new()
+        $cve.id = $line.cve.CVE_Data_Meta.ID
+        $cve.score = $line.impact.baseMetricV3.cvssV3.baseScore
+        $cve.severity = $line.impact.baseMetricV3.cvssV3.baseSeverity
+        $cve.description = $line.cve.description.description_data.value
+        $cve | Export-Csv C:\temp\CVE_Query.csv -Append -NoTypeInformation
     }
 
-    $cveObject | Export-Csv C:\Temp\CVE_Query.csv
+    # Clears variables associated with the GUI so they won't carry over into subsequent runs
+    $Form = $null
 
     return 0
 }
